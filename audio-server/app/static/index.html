@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Audio Node</title>
+<link rel="icon" href="data:,">
+<style>
+  :root { --page:#0d0d0d; --surface:#1a1a19; --ink:#fff; --ink2:#c3c2b7; --muted:#898781; --grid:#2c2c2a; --axis:#383835; --ring:rgba(255,255,255,.10);
+          --c1:#3987e5; --c2:#d95926; --good:#0ca30c; --crit:#d03b3b; --warn:#fab219; color-scheme:dark; }
+  * { box-sizing:border-box }
+  body { margin:0; background:var(--page); color:var(--ink); font:14px/1.4 -apple-system,system-ui,Segoe UI,Roboto,sans-serif; padding:16px }
+  h1 { font-size:18px; margin:0; font-weight:600 } h2 { font-size:15px; margin:0 0 10px; font-weight:600 }
+  header { display:flex; flex-wrap:wrap; gap:12px 20px; align-items:center; margin-bottom:14px }
+  .pill { display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:999px; border:1px solid var(--ring); font-size:12px; color:var(--ink2) }
+  .dot { width:8px; height:8px; border-radius:50%; background:var(--crit) } .dot.on { background:var(--good) }
+  .stat { font-size:12px; color:var(--muted) } .stat b { color:var(--ink2); font-weight:500; font-variant-numeric:tabular-nums }
+  .card { background:var(--surface); border:1px solid var(--ring); border-radius:10px; padding:12px 14px; min-width:0 }
+  .row { display:flex; flex-wrap:wrap; gap:10px; align-items:center }
+  input[type=text] { background:var(--page); color:var(--ink); border:1px solid var(--axis); border-radius:6px; padding:7px 10px; font-size:14px; min-width:180px }
+  button { background:#2a2a28; color:var(--ink); border:1px solid var(--ring); border-radius:8px; padding:8px 14px; font-size:14px; cursor:pointer }
+  button:hover { background:#333331 } button:disabled { opacity:.5; cursor:default }
+  button.rec { background:var(--crit); border-color:transparent; font-weight:600; padding:10px 22px }
+  button.rec.on { background:#2a2a28; border-color:var(--crit); color:#ff8b8b }
+  button.rec.on::before { content:""; display:inline-block; width:10px; height:10px; background:var(--crit); border-radius:2px; margin-right:8px; animation:blink 1s steps(2) infinite }
+  button.play { background:#1f4f89; border-color:transparent } button.play:hover { background:#265fa3 }
+  button.stop { border-color:var(--crit); color:#ff8b8b }
+  button.small { padding:4px 10px; font-size:12px } button.danger { border-color:var(--crit); color:#ff8b8b }
+  @keyframes blink { to { opacity:.3 } }
+  .grid { display:grid; grid-template-columns:3fr 2fr; gap:12px; margin-top:12px } @media (max-width:900px) { .grid { grid-template-columns:1fr } }
+  .lvl { font-size:12px; color:var(--muted); margin-left:auto; font-variant-numeric:tabular-nums }
+  .meter { height:4px; background:var(--grid); border-radius:2px; overflow:hidden; margin:4px 0 8px } .meter i { display:block; height:100%; width:0; background:var(--ink2); transition:width .08s linear }
+  canvas { width:100%; display:block; border-radius:4px; background:var(--page) } canvas.wave { height:220px } canvas.spec { height:130px; margin-top:6px }
+  select { background:var(--page); color:var(--ink2); border:1px solid var(--axis); border-radius:6px; padding:3px 6px; font-size:12px }
+  .tip { position:fixed; pointer-events:none; background:#111; border:1px solid var(--ring); border-radius:6px; padding:5px 8px; font-size:12px; color:var(--ink2); display:none; z-index:9; white-space:nowrap }
+  .tblwrap { overflow-x:auto } table { border-collapse:collapse; width:100%; font-size:13px } th, td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--grid); white-space:nowrap }
+  th { color:var(--muted); font-weight:500; font-size:12px } td a { color:var(--c1); text-decoration:none; margin-right:8px }
+  .snd td:first-child { white-space:normal; min-width:160px } .snd tr.now td { background:#16243a }
+  .vol { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted) } .vol input { width:140px }
+  .empty { color:var(--muted); padding:10px 0 } .note { font-size:12px; color:var(--muted); margin-top:8px }
+  .np { font-size:12px; color:var(--warn) }
+  section { margin-top:12px }
+</style>
+</head>
+<body>
+<header>
+  <h1>Audio Node</h1>
+  <span class="pill"><span class="dot" id="dot"></span><span id="devstate">connecting…</span></span>
+  <span class="stat">device <b id="dev">–</b></span>
+  <span class="stat">rate <b id="kbps">0</b> kB/s</span>
+  <span class="stat">chunk <b id="seq">–</b></span>
+  <span class="stat">lost <b id="gaps">0</b></span>
+  <span class="stat">uptime <b id="up">–</b></span>
+  <span class="stat">viewers <b id="viewers">–</b></span>
+</header>
+
+<div class="card row">
+  <input type="text" id="recname" placeholder="recording name" maxlength="60">
+  <button class="rec" id="recbtn">● Record</button>
+  <span class="stat" id="recstate">not recording</span>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <div class="row" style="margin-bottom:6px"><span style="width:10px;height:10px;border-radius:2px;background:var(--c1)"></span><h2 style="margin:0">Microphone (INMP441)</h2>
+      <select id="gain"><option value="0">auto</option><option value="1">×1</option><option value="10">×10</option><option value="100">×100</option></select><span class="lvl" id="lvl"></span></div>
+    <div class="meter"><i id="meter"></i></div>
+    <canvas class="wave" id="wave"></canvas><canvas class="spec" id="spec"></canvas>
+  </div>
+
+  <div class="card">
+    <div class="row" style="margin-bottom:8px"><h2 style="margin:0">Speaker</h2>
+      <span class="np" id="np"></span>
+      <button class="stop small" id="stopbtn" style="margin-left:auto">■ Stop</button></div>
+    <div class="vol" style="margin-bottom:10px">volume <input type="range" id="vol" min="0" max="100" value="60"><b id="volv">60%</b></div>
+    <div class="row" style="margin-bottom:10px">
+      <button class="play" data-id="*melody*">▶ Built-in melody</button>
+      <label><input type="file" id="upfile" accept="audio/*,.mp3,.wav,.ogg,.m4a,.flac" hidden><button id="upbtn">⬆ Upload sound</button></label>
+      <span class="stat" id="upstate"></span>
+    </div>
+    <div class="tblwrap"><table class="snd"><thead><tr><th>Sound</th><th>Length</th><th></th></tr></thead><tbody id="sndbody"></tbody></table></div>
+    <p class="note">Uploads are converted to 22.05 kHz mono and level-normalised. Preview plays in your browser, ▶ plays on the speaker.</p>
+  </div>
+</div>
+<div class="tip" id="tip"></div>
+
+<section class="card">
+  <h2>Recordings</h2>
+  <div class="tblwrap"><table><thead><tr><th>Started</th><th>Name</th><th>Length</th><th>Size</th><th>Lost</th><th>Files</th><th></th></tr></thead><tbody id="rectbody"></tbody></table></div>
+  <div class="empty" id="recempty">No recordings yet.</div>
+  <p class="note">mic.wav = mono 16 kHz 16-bit. "To speaker" copies a recording into the sound library so it can be played back.</p>
+</section>
+
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const WINDOW_S=2.0, FFT_N=2048, HDR=24, JITTER_S=0.4, COLOR='#3987e5';
+class Ring { constructor(n){ this.n=n; this.buf=new Float32Array(n); this.w=0; this.total=0; }
+  push(src){ for(let i=0;i<src.length;i++){ this.buf[this.w]=src[i]/32768; this.w=(this.w+1)%this.n; this.total++; } }
+  last(k,out,end){ const back=this.total-end; let s=(this.w-back-k+this.n*4)%this.n; for(let i=0;i<k;i++) out[i]=this.buf[(s+i)%this.n]; return out; } }
+const state={ rate:16000, ring:null, play:{pos:0}, lastFrame:0, auto:0.01, hover:null, tmp:new Float32Array(0),
+  fftRe:new Float32Array(FFT_N), fftIm:new Float32Array(FFT_N), specDb:new Float32Array(FFT_N/2).fill(-120) };
+function ensureRing(){ const n=Math.round(state.rate*(WINDOW_S+JITTER_S+2.5)); if(!state.ring||state.ring.n!==n) state.ring=new Ring(n); }
+ensureRing();
+function onChunk(ab){ const dv=new DataView(ab); if(String.fromCharCode(dv.getUint8(0),dv.getUint8(1),dv.getUint8(2),dv.getUint8(3))!=='AUD1') return;
+  const rate=dv.getUint32(12,true), frames=dv.getUint32(16,true); if(rate!==state.rate){ state.rate=rate; ensureRing(); }
+  state.ring.push(new Int16Array(ab,HDR,frames)); }
+function playHead(dt){ const ring=state.ring, rate=state.rate, ph=state.play, newest=ring.total, behind=newest-ph.pos;
+  if(behind<0||behind>rate*(JITTER_S+1.5)) ph.pos=newest-rate*JITTER_S; else if(behind>rate*JITTER_S*0.25) ph.pos+=rate*dt;
+  if(ph.pos>newest) ph.pos=newest; if(ph.pos<0) ph.pos=0; return Math.floor(ph.pos); }
+const hann=new Float32Array(FFT_N); for(let i=0;i<FFT_N;i++) hann[i]=0.5-0.5*Math.cos(2*Math.PI*i/(FFT_N-1));
+function fft(re,im){ const n=re.length; for(let i=1,j=0;i<n;i++){ let bit=n>>1; for(;j&bit;bit>>=1) j^=bit; j^=bit; if(i<j){ let t=re[i];re[i]=re[j];re[j]=t; t=im[i];im[i]=im[j];im[j]=t; } }
+  for(let len=2;len<=n;len<<=1){ const ang=-2*Math.PI/len, wr=Math.cos(ang), wi=Math.sin(ang); for(let i=0;i<n;i+=len){ let cr=1,ci=0; for(let k=0;k<len/2;k++){ const a=i+k,b=a+len/2; const tr=re[b]*cr-im[b]*ci, ti=re[b]*ci+im[b]*cr; re[b]=re[a]-tr; im[b]=im[a]-ti; re[a]+=tr; im[a]+=ti; const ncr=cr*wr-ci*wi; ci=cr*wi+ci*wr; cr=ncr; } } } }
+function fit(cv){ const r=cv.getBoundingClientRect(), dpr=devicePixelRatio||1, w=Math.round(r.width*dpr), h=Math.round(r.height*dpr); if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h;} return [w,h,dpr]; }
+const wave=$('wave'), spec=$('spec'), tip=$('tip');
+wave.addEventListener('mousemove',e=>{ const r=wave.getBoundingClientRect(); state.hover={x:(e.clientX-r.left)/r.width,cx:e.clientX,cy:e.clientY}; });
+wave.addEventListener('mouseleave',()=>{ state.hover=null; tip.style.display='none'; });
+function draw(dt){
+  const rate=state.rate, ring=state.ring, nShow=Math.round(rate*WINDOW_S); if(state.tmp.length!==nShow) state.tmp=new Float32Array(nShow);
+  const d=ring.last(nShow,state.tmp,playHead(dt));
+  const nl=Math.round(rate*0.1); let ss=0,pk=0; for(let i=nShow-nl;i<nShow;i++){ ss+=d[i]*d[i]; const a=Math.abs(d[i]); if(a>pk)pk=a; }
+  const rms=Math.sqrt(ss/nl), db=20*Math.log10(rms+1e-9); $('lvl').textContent=`RMS ${db.toFixed(1)} dBFS  peak ${(20*Math.log10(pk+1e-9)).toFixed(1)} dBFS`; $('meter').style.width=(Math.max(0,(db+90)/90)*100).toFixed(1)+'%';
+  const g=+$('gain').value; let full; if(g) full=1/g; else { let mx=0; for(let i=0;i<nShow;i++){ const a=Math.abs(d[i]); if(a>mx)mx=a; } state.auto=state.auto*0.9+Math.max(mx*1.2,0.002)*0.1; full=state.auto; }
+  const [w,h,dpr]=fit(wave), c=wave.getContext('2d'); c.fillStyle='#0d0d0d'; c.fillRect(0,0,w,h);
+  c.strokeStyle='#2c2c2a'; c.lineWidth=1; c.beginPath(); for(let i=1;i<4;i++){ const y=Math.round(h*i/4)+.5; c.moveTo(0,y); c.lineTo(w,y); } for(let i=1;i<8;i++){ const x=Math.round(w*i/8)+.5; c.moveTo(x,0); c.lineTo(x,h); } c.stroke();
+  c.strokeStyle=COLOR; c.lineWidth=Math.max(1,dpr); c.beginPath(); const spp=nShow/w;
+  for(let x=0;x<w;x++){ const a=Math.floor(x*spp), b=Math.max(a+1,Math.floor((x+1)*spp)); let mn=1e9,mx=-1e9; for(let i=a;i<b&&i<nShow;i++){ if(d[i]<mn)mn=d[i]; if(d[i]>mx)mx=d[i]; }
+    const y1=h/2-(mx/full)*(h/2), y2=h/2-(mn/full)*(h/2); c.moveTo(x+.5,Math.max(0,Math.min(h,y1))); c.lineTo(x+.5,Math.max(0,Math.min(h,y2+(y2-y1<1?1:0)))); } c.stroke();
+  c.fillStyle='#898781'; c.font=`${11*dpr}px system-ui`; c.textBaseline='top'; c.fillText(`±${full.toPrecision(2)} FS`,6*dpr,4*dpr); c.textAlign='right'; c.fillText(`${WINDOW_S} s`,w-6*dpr,4*dpr); c.textAlign='left';
+  if(state.hover){ const x=Math.round(state.hover.x*w)+.5; c.strokeStyle='#c3c2b7'; c.beginPath(); c.moveTo(x,0); c.lineTo(x,h); c.stroke(); const i=Math.min(nShow-1,Math.floor(state.hover.x*nShow));
+    tip.style.display='block'; tip.style.left=(state.hover.cx+14)+'px'; tip.style.top=(state.hover.cy+14)+'px'; tip.textContent=`t ${((i-nShow)/rate).toFixed(3)} s   ${d[i].toFixed(5)} FS`; }
+  const off=nShow-FFT_N; if(off>=0){ for(let i=0;i<FFT_N;i++){ state.fftRe[i]=d[off+i]*hann[i]; state.fftIm[i]=0; } fft(state.fftRe,state.fftIm);
+    for(let i=0;i<FFT_N/2;i++){ const m=Math.hypot(state.fftRe[i],state.fftIm[i])/(FFT_N/4); state.specDb[i]=state.specDb[i]*0.6+20*Math.log10(m+1e-9)*0.4; } }
+  const [sw,sh,sd]=fit(spec), s=spec.getContext('2d'); s.fillStyle='#0d0d0d'; s.fillRect(0,0,sw,sh); const fmax=rate/2, dbTop=0, dbBot=-120;
+  s.strokeStyle='#2c2c2a'; s.beginPath(); for(let f=1000;f<fmax;f+=1000){ const x=Math.round(sw*f/fmax)+.5; s.moveTo(x,0); s.lineTo(x,sh); } s.stroke();
+  s.fillStyle='#898781'; s.font=`${10*sd}px system-ui`; s.textBaseline='top'; for(let f=1000;f<fmax;f+=1000) s.fillText(`${f/1000} kHz`,sw*f/fmax+3*sd,4*sd); s.fillText('spectrum, dB',6*sd,4*sd);
+  s.strokeStyle=COLOR; s.lineWidth=Math.max(1,sd); s.beginPath(); const bins=FFT_N/2;
+  for(let x=0;x<sw;x++){ const b0=Math.floor(x*bins/sw), b1=Math.max(b0+1,Math.floor((x+1)*bins/sw)); let mx=-1e9; for(let b=b0;b<b1&&b<bins;b++) if(state.specDb[b]>mx)mx=state.specDb[b];
+    const y=sh-(Math.min(dbTop,Math.max(dbBot,mx))-dbBot)/(dbTop-dbBot)*sh; if(x===0)s.moveTo(x,y); else s.lineTo(x,y); } s.stroke();
+}
+function frame(ts){ requestAnimationFrame(frame); if(ts-state.lastFrame<30) return; const dt=state.lastFrame?Math.min(0.2,(ts-state.lastFrame)/1000):0; state.lastFrame=ts; draw(dt); }
+requestAnimationFrame(frame);
+
+// ---------------- websocket / status ----------------
+let ws, wsTimer, recActive=false, nowPlaying=null, volDragging=false;
+function connect(){ ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws'); ws.binaryType='arraybuffer';
+  ws.onmessage=e=>{ if(e.data instanceof ArrayBuffer) onChunk(e.data); else onStatus(JSON.parse(e.data)); };
+  ws.onclose=()=>{ $('devstate').textContent='server link lost'; $('dot').className='dot'; clearTimeout(wsTimer); wsTimer=setTimeout(connect,1500); }; ws.onerror=()=>ws.close(); }
+connect();
+function fmtUp(s){ if(s==null)return '–'; const h=Math.floor(s/3600),m=Math.floor(s%3600/60); return h?`${h}h ${m}m`:`${m}m ${s%60}s`; }
+function onStatus(m){ if(m.type!=='status')return; const d=m.device;
+  $('dot').className='dot'+(d.online?' on':''); $('devstate').textContent=d.online?'device streaming':(d.last_seen_ago==null?'waiting for device':`device silent ${Math.round(d.last_seen_ago)} s`);
+  $('dev').textContent=d.device||'–'; $('kbps').textContent=d.online?d.kbps:'0'; $('seq').textContent=d.seq??'–'; $('gaps').textContent=d.gaps; $('up').textContent=fmtUp(d.uptime_s); $('viewers').textContent=m.clients;
+  const r=m.recording; if(recActive&&!r.active) loadRecs(); recActive=r.active;
+  $('recbtn').textContent=r.active?'Stop':'● Record'; $('recbtn').className='rec'+(r.active?' on':''); $('recname').disabled=r.active;
+  $('recstate').textContent=r.active?`recording "${r.name||r.id}"  ${r.duration_s.toFixed(1)} s  ${(r.bytes/1e6).toFixed(1)} MB${r.gaps?`  (${r.gaps} lost)`:''}`:'not recording';
+  if(!volDragging){ $('vol').value=Math.round(m.volume*100); $('volv').textContent=Math.round(m.volume*100)+'%'; }
+  const np=m.now_playing; if(np!==nowPlaying){ nowPlaying=np; renderSounds(); }
+  $('np').textContent = np ? `playing: ${np==='*melody*'?'built-in melody':(sounds.find(s=>s.id===np)||{}).name||np}` : (m.pending&&Object.keys(m.pending).length?'sending to device…':''); }
+$('recbtn').onclick=async()=>{ $('recbtn').disabled=true; try{ if(recActive){ await fetch('/api/record/stop',{method:'POST'}); loadRecs(); } else await fetch('/api/record/start',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name:$('recname').value})}); } finally{ $('recbtn').disabled=false; } };
+$('recname').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!recActive) $('recbtn').click(); });
+
+// ---------------- speaker ----------------
+async function play(id){ await fetch('/api/play',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id, vol:$('vol').value/100})}); }
+$('stopbtn').onclick=()=>fetch('/api/play/stop',{method:'POST'});
+document.querySelector('button.play[data-id="*melody*"]').onclick=()=>play('*melody*');
+$('vol').addEventListener('pointerdown',()=>volDragging=true); $('vol').addEventListener('input',()=>$('volv').textContent=$('vol').value+'%');
+$('vol').addEventListener('change',async()=>{ volDragging=false; await fetch('/api/volume',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({vol:$('vol').value/100})}); });
+$('upbtn').onclick=e=>{ e.preventDefault(); $('upfile').click(); };
+$('upfile').onchange=async()=>{ const f=$('upfile').files[0]; if(!f)return; $('upstate').textContent=`uploading ${f.name}…`; const fd=new FormData(); fd.append('file',f); fd.append('name',f.name.replace(/\.[^.]+$/,''));
+  const r=await fetch('/api/sounds',{method:'POST',body:fd}); const j=await r.json().catch(()=>({})); $('upstate').textContent=r.ok?`added "${j.name}" (${j.duration_s}s)`:`failed: ${j.detail||r.status}`; $('upfile').value=''; loadSounds(); };
+let sounds=[]; let previewAudio=null;
+async function loadSounds(){ sounds=await (await fetch('/api/sounds')).json(); renderSounds(); }
+function renderSounds(){ const tb=$('sndbody'); tb.innerHTML='';
+  for(const s of sounds){ const tr=document.createElement('tr'); if(s.id===nowPlaying) tr.className='now';
+    tr.innerHTML=`<td>${s.name}${s.preset?' <span style="color:var(--muted);font-size:11px">preset</span>':''}</td><td>${s.duration_s.toFixed(1)} s</td>
+      <td><button class="play small">▶ speaker</button> <button class="small prev">preview</button> ${s.preset?'':'<button class="small danger">delete</button>'}</td>`;
+    tr.querySelector('.play').onclick=()=>play(s.id);
+    tr.querySelector('.prev').onclick=()=>{ if(previewAudio){previewAudio.pause();} previewAudio=new Audio(`/api/sounds/${s.id}/wav`); previewAudio.play(); };
+    const del=tr.querySelector('.danger'); if(del) del.onclick=async()=>{ if(del.dataset.arm){ await fetch('/api/sounds/'+s.id,{method:'DELETE'}); loadSounds(); } else { del.dataset.arm='1'; del.textContent='confirm'; setTimeout(()=>{del.dataset.arm='';del.textContent='delete';},3000);} };
+    tb.appendChild(tr); } }
+loadSounds();
+
+// ---------------- recordings ----------------
+function fmtBytes(b){ return b>1e6?(b/1e6).toFixed(1)+' MB':(b/1e3).toFixed(0)+' kB'; }
+async function loadRecs(){ const list=await (await fetch('/api/recordings')).json(); const tb=$('rectbody'); tb.innerHTML=''; $('recempty').style.display=list.length?'none':'block';
+  for(const r of list){ const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${r.started?r.started.replace('T',' ').slice(0,19):r.id}</td><td>${r.name||'–'}${r.complete?'':' <span style="color:var(--warn)">(in progress)</span>'}</td><td>${(r.duration_s||0).toFixed(1)} s</td><td>${fmtBytes(r.bytes)}</td><td>${r.gaps||0}</td>
+      <td>${r.files.map(f=>`<a href="/api/recordings/${r.id}/${f.name}" download>${f.name}</a>`).join('')}</td>
+      <td><button class="small tosnd">to speaker</button> <button class="small danger">delete</button></td>`;
+    tr.querySelector('.tosnd').onclick=async()=>{ await fetch(`/api/recordings/${r.id}/to-sound`,{method:'POST'}); loadSounds(); };
+    const del=tr.querySelector('.danger'); del.onclick=async()=>{ if(del.dataset.arm){ await fetch('/api/recordings/'+r.id,{method:'DELETE'}); loadRecs(); } else { del.dataset.arm='1'; del.textContent='confirm'; setTimeout(()=>{del.dataset.arm='';del.textContent='delete';},3000);} };
+    tb.appendChild(tr); } }
+loadRecs(); setInterval(loadRecs,15000);
+</script>
+</body>
+</html>

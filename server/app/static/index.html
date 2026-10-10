@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rice Sensors</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --page:#0d0d0d; --surface:#1a1a19; --ink:#fff; --ink2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --axis:#383835; --ring:rgba(255,255,255,.10);
+    --c1:#3987e5; --c2:#d95926; --c3:#199e70; --c4:#c98500;
+    --good:#0ca30c; --crit:#d03b3b; --warn:#fab219;
+    color-scheme: dark;
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:var(--page); color:var(--ink); font:14px/1.4 -apple-system,system-ui,Segoe UI,Roboto,sans-serif; padding:16px; }
+  h1 { font-size:18px; margin:0; font-weight:600 }
+  header { display:flex; flex-wrap:wrap; gap:12px 20px; align-items:center; margin-bottom:14px }
+  .pill { display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:999px; border:1px solid var(--ring); font-size:12px; color:var(--ink2) }
+  .dot { width:8px; height:8px; border-radius:50%; background:var(--crit) }
+  .dot.on { background:var(--good) }
+  .stat { font-size:12px; color:var(--muted) } .stat b { color:var(--ink2); font-weight:500; font-variant-numeric:tabular-nums }
+  .recbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; background:var(--surface); border:1px solid var(--ring); border-radius:10px; padding:10px 14px; margin-bottom:14px }
+  .recbar input { background:var(--page); color:var(--ink); border:1px solid var(--axis); border-radius:6px; padding:7px 10px; font-size:14px; min-width:200px }
+  button { background:#2a2a28; color:var(--ink); border:1px solid var(--ring); border-radius:8px; padding:8px 16px; font-size:14px; cursor:pointer }
+  button:hover { background:#333331 }
+  button.rec { background:var(--crit); border-color:transparent; font-weight:600; padding:10px 22px }
+  button.rec.on { background:#2a2a28; border-color:var(--crit); color:#ff8b8b }
+  button.rec.on::before { content:""; display:inline-block; width:10px; height:10px; background:var(--crit); border-radius:2px; margin-right:8px; animation:blink 1s steps(2) infinite }
+  @keyframes blink { to { opacity:.3 } }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:12px }
+  @media (max-width:900px) { .grid { grid-template-columns:1fr } }
+  .panel { background:var(--surface); border:1px solid var(--ring); border-radius:10px; padding:10px 12px 8px; min-width:0 }
+  .panel .head { display:flex; align-items:center; gap:10px; margin-bottom:6px; flex-wrap:wrap }
+  .panel .head .sw { width:10px; height:10px; border-radius:2px }
+  .panel .head h2 { font-size:14px; margin:0; font-weight:600 }
+  .panel .head .lvl { font-size:12px; color:var(--muted); margin-left:auto; font-variant-numeric:tabular-nums }
+  .panel select { background:var(--page); color:var(--ink2); border:1px solid var(--axis); border-radius:6px; padding:3px 6px; font-size:12px }
+  .meter { height:4px; background:var(--grid); border-radius:2px; overflow:hidden; margin:4px 0 8px }
+  .meter i { display:block; height:100%; width:0; background:var(--ink2); transition:width .08s linear }
+  canvas { width:100%; display:block; border-radius:4px; background:var(--page) }
+  canvas.wave { height:150px } canvas.spec { height:110px; margin-top:6px }
+  .tip { position:fixed; pointer-events:none; background:#111; border:1px solid var(--ring); border-radius:6px; padding:5px 8px; font-size:12px; color:var(--ink2); display:none; z-index:9; white-space:nowrap }
+  section.recs { margin-top:18px }
+  section.recs h2 { font-size:15px; margin:0 0 8px }
+  .tblwrap { overflow-x:auto }
+  table { border-collapse:collapse; width:100%; font-size:13px; min-width:640px }
+  th, td { text-align:left; padding:7px 10px; border-bottom:1px solid var(--grid); white-space:nowrap }
+  th { color:var(--muted); font-weight:500; font-size:12px }
+  td a { color:var(--c1); text-decoration:none; margin-right:10px } td a:hover { text-decoration:underline }
+  td button.small { padding:3px 10px; font-size:12px }
+  td button.danger { border-color:var(--crit); color:#ff8b8b }
+  .empty { color:var(--muted); padding:14px 0 }
+  .note { font-size:12px; color:var(--muted); margin-top:10px }
+  @media (max-width:520px) { .grid { grid-template-columns:1fr } body { padding:12px } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Rice Sensors</h1>
+  <span class="pill"><span class="dot" id="dot"></span><span id="devstate">connecting…</span></span>
+  <span class="stat">device <b id="dev">–</b></span>
+  <span class="stat">rate <b id="kbps">0</b> kB/s</span>
+  <span class="stat">chunk <b id="seq">–</b></span>
+  <span class="stat">lost <b id="gaps">0</b></span>
+  <span class="stat">uptime <b id="up">–</b></span>
+  <span class="stat">viewers <b id="viewers">–</b></span>
+</header>
+
+<div class="recbar">
+  <input id="recname" placeholder="recording name (e.g. bag-3-infested)" maxlength="60">
+  <button class="rec" id="recbtn">● Record</button>
+  <span class="stat" id="recstate">not recording</span>
+</div>
+
+<div class="grid" id="panels"></div>
+<div class="tip" id="tip"></div>
+
+<section class="recs">
+  <h2>Recordings</h2>
+  <div class="tblwrap"><table><thead><tr><th>Started</th><th>Name</th><th>Length</th><th>Size</th><th>Lost chunks</th><th>Files</th><th></th></tr></thead><tbody id="rectbody"></tbody></table></div>
+  <div class="empty" id="recempty">No recordings yet.</div>
+  <p class="note">Each channel is its own file: mic_A.wav, mic_B.wav (16 kHz mono), piezo_1.wav, piezo_2.wav (raw ADC counts − 2048). mics.wav / piezo.wav are the combined 2-channel versions. meta.json has rates and timing.</p>
+</section>
+
+<script>
+'use strict';
+// ---------------------------------------------------------------- config
+const CH = [
+  { key:'micA',  title:'Mic A (INMP441, left)',  color:'#3987e5', kind:'mic',   idx:0 },
+  { key:'micB',  title:'Mic B (INMP441, right)', color:'#d95926', kind:'mic',   idx:1 },
+  { key:'pz1',   title:'Piezo 1 (GPIO34)',        color:'#199e70', kind:'piezo', idx:0 },
+  { key:'pz2',   title:'Piezo 2 (GPIO35)',        color:'#c98500', kind:'piezo', idx:1 },
+];
+const WINDOW_S = 2.0;   // seconds shown in the waveform
+const FFT_N = 2048;
+const HDR = 32;
+
+// ---------------------------------------------------------------- ring buffers
+class Ring {
+  constructor(n){ this.n=n; this.buf=new Float32Array(n); this.w=0; this.total=0; }
+  push(src, stride, off, scale){
+    for (let i=off; i<src.length; i+=stride){ this.buf[this.w]=src[i]*scale; this.w=(this.w+1)%this.n; this.total++; }
+  }
+  // copy k samples ending at absolute sample index `end` into out (k <= n)
+  last(k, out, end){ if(end==null) end=this.total; const back=this.total-end; let s=(this.w-back-k+this.n*4)%this.n; for(let i=0;i<k;i++){ out[i]=this.buf[(s+i)%this.n]; } return out; }
+}
+// Playback clock: advances at the nominal sample rate so bursts/jitter from Wi-Fi do not show as jumps.
+const JITTER_S = 0.4;
+function playHead(ring, rate, key, dt){
+  const ph = state.play[key] ?? (state.play[key] = {pos: 0});
+  const newest = ring.total, behind = newest - ph.pos;
+  if (behind < 0 || behind > rate*(JITTER_S+1.5)) ph.pos = newest - rate*JITTER_S;   // first data or big gap: resync
+  else if (behind > rate*JITTER_S*0.25) ph.pos += rate*dt;                            // normal: advance at real time
+  // else: buffer nearly empty -> hold (short freeze instead of a jump)
+  if (ph.pos > newest) ph.pos = newest;
+  if (ph.pos < 0) ph.pos = 0;
+  return Math.floor(ph.pos);
+}
+const state = { micRate:16000, pzRate:10000, rings:{}, play:{}, baseline:[2048,2048], rms:[0,0,0,0], peak:[0,0,0,0], lastChunk:0, lastFrame:0 };
+function ensureRings(){
+  for (const c of CH){
+    const rate = c.kind==='mic'?state.micRate:state.pzRate;
+    const n = Math.round(rate*(WINDOW_S+JITTER_S+2.5));
+    if (!state.rings[c.key] || state.rings[c.key].n!==n) state.rings[c.key]=new Ring(n);
+  }
+}
+ensureRings();
+
+// ---------------------------------------------------------------- chunk parsing
+function onChunk(ab){
+  const dv = new DataView(ab);
+  if (String.fromCharCode(dv.getUint8(0),dv.getUint8(1),dv.getUint8(2),dv.getUint8(3))!=='SNS1') return;
+  const micRate=dv.getUint32(12,true), pzRate=dv.getUint32(16,true);
+  const micFrames=dv.getUint32(20,true), pzFrames=dv.getUint32(24,true);
+  if (micRate!==state.micRate || pzRate!==state.pzRate){ state.micRate=micRate; state.pzRate=pzRate; ensureRings(); }
+  const mic = new Int16Array(ab, HDR, micFrames*2);
+  const pz  = new Uint16Array(ab, HDR+micFrames*4, pzFrames*2);
+  state.rings.micA.push(mic,2,0,1/32768); state.rings.micB.push(mic,2,1,1/32768);
+  // piezo: track the resting level slowly, show the AC part in ADC counts
+  for (let k=0;k<2;k++){ let s=0,n=0; for(let i=k;i<pz.length;i+=2){s+=pz[i];n++;} if(n) state.baseline[k]=state.baseline[k]*0.98+(s/n)*0.02; }
+  state.rings.pz1.push(pz,2,0,1); state.rings.pz2.push(pz,2,1,1);
+  state.lastChunk=performance.now();
+}
+
+// ---------------------------------------------------------------- panels
+const tip=document.getElementById('tip');
+const panels=[];
+for (const c of CH){
+  const el=document.createElement('div'); el.className='panel';
+  el.innerHTML=`<div class="head"><span class="sw" style="background:${c.color}"></span><h2>${c.title}</h2>
+    <select class="gain"><option value="0">auto</option><option value="1">×1</option><option value="10">×10</option><option value="100">×100</option><option value="1000">×1000</option></select>
+    <span class="lvl"></span></div>
+    <div class="meter"><i></i></div>
+    <canvas class="wave"></canvas><canvas class="spec"></canvas>`;
+  document.getElementById('panels').appendChild(el);
+  const p={ cfg:c, el, wave:el.querySelector('.wave'), spec:el.querySelector('.spec'), lvl:el.querySelector('.lvl'),
+            meter:el.querySelector('.meter i'), gainSel:el.querySelector('.gain'), autoScale:1, hover:null,
+            tmp:new Float32Array(0), fftIn:new Float32Array(FFT_N), fftRe:new Float32Array(FFT_N), fftIm:new Float32Array(FFT_N), specDb:new Float32Array(FFT_N/2) };
+  p.wave.addEventListener('mousemove',e=>{ const r=p.wave.getBoundingClientRect(); p.hover={x:(e.clientX-r.left)/r.width, y:(e.clientY-r.top)/r.height, cx:e.clientX, cy:e.clientY}; });
+  p.wave.addEventListener('mouseleave',()=>{ p.hover=null; tip.style.display='none'; });
+  panels.push(p);
+}
+
+function fitCanvas(cv){ const r=cv.getBoundingClientRect(); const dpr=window.devicePixelRatio||1; const w=Math.round(r.width*dpr), h=Math.round(r.height*dpr); if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h;} return [w,h,dpr]; }
+
+// Hann-windowed radix-2 FFT, in place
+const hann=new Float32Array(FFT_N); for(let i=0;i<FFT_N;i++) hann[i]=0.5-0.5*Math.cos(2*Math.PI*i/(FFT_N-1));
+function fft(re,im){ const n=re.length; for(let i=1,j=0;i<n;i++){ let bit=n>>1; for(;j&bit;bit>>=1) j^=bit; j^=bit; if(i<j){ let t=re[i];re[i]=re[j];re[j]=t; t=im[i];im[i]=im[j];im[j]=t; } }
+  for(let len=2;len<=n;len<<=1){ const ang=-2*Math.PI/len, wr=Math.cos(ang), wi=Math.sin(ang);
+    for(let i=0;i<n;i+=len){ let cr=1,ci=0; for(let k=0;k<len/2;k++){ const a=i+k,b=a+len/2; const tr=re[b]*cr-im[b]*ci, ti=re[b]*ci+im[b]*cr; re[b]=re[a]-tr; im[b]=im[a]-ti; re[a]+=tr; im[a]+=ti; const ncr=cr*wr-ci*wi; ci=cr*wi+ci*wr; cr=ncr; } } } }
+
+function drawPanel(p, dt){
+  const c=p.cfg, ring=state.rings[c.key], rate=c.kind==='mic'?state.micRate:state.pzRate;
+  const nShow=Math.min(ring.n, Math.round(rate*WINDOW_S));
+  if (p.tmp.length!==nShow) p.tmp=new Float32Array(nShow);
+  const d=ring.last(nShow,p.tmp, playHead(ring, rate, c.key, dt));
+  const base = c.kind==='piezo' ? state.baseline[c.idx] : 0;
+  // level over last 100 ms
+  const nl=Math.round(rate*0.1); let ss=0, pk=0;
+  for(let i=nShow-nl;i<nShow;i++){ const v=d[i]-base; ss+=v*v; const a=Math.abs(v); if(a>pk)pk=a; }
+  const rms=Math.sqrt(ss/nl);
+  let lvlTxt, meterFrac;
+  if (c.kind==='mic'){ const db=20*Math.log10(rms+1e-9); lvlTxt=`RMS ${db.toFixed(1)} dBFS  peak ${(20*Math.log10(pk+1e-9)).toFixed(1)} dBFS`; meterFrac=Math.max(0,(db+90)/90); }
+  else { lvlTxt=`RMS ${rms.toFixed(1)} cnt  peak ${pk.toFixed(0)} cnt  rest ${base.toFixed(0)}`; meterFrac=Math.min(1,Math.log10(1+rms)/3); }
+  p.lvl.textContent=lvlTxt; p.meter.style.width=(meterFrac*100).toFixed(1)+'%';
+
+  // scale
+  const gsel=+p.gainSel.value; let full;
+  if (c.kind==='mic') full = gsel? 1/gsel : null; else full = gsel? 2048/gsel : null;
+  if (full===null){ let mx=0; for(let i=0;i<nShow;i++){ const a=Math.abs(d[i]-base); if(a>mx)mx=a; } const want=Math.max(mx*1.2, c.kind==='mic'?0.002:4); p.autoScale=p.autoScale*0.9+want*0.1; full=p.autoScale; }
+
+  // waveform: min/max per pixel column
+  const [w,h,dpr]=fitCanvas(p.wave); const g=p.wave.getContext('2d');
+  g.fillStyle='#0d0d0d'; g.fillRect(0,0,w,h);
+  g.strokeStyle='#2c2c2a'; g.lineWidth=1; g.beginPath();
+  for(let i=1;i<4;i++){ const y=Math.round(h*i/4)+.5; g.moveTo(0,y); g.lineTo(w,y); }
+  for(let i=1;i<WINDOW_S*4;i++){ const x=Math.round(w*i/(WINDOW_S*4))+.5; g.moveTo(x,0); g.lineTo(x,h); }
+  g.stroke();
+  g.strokeStyle='#383835'; g.beginPath(); g.moveTo(0,Math.round(h/2)+.5); g.lineTo(w,Math.round(h/2)+.5); g.stroke();
+  g.strokeStyle=c.color; g.lineWidth=Math.max(1,dpr); g.beginPath();
+  const spp=nShow/w;
+  for(let x=0;x<w;x++){ const a=Math.floor(x*spp), b=Math.max(a+1,Math.floor((x+1)*spp)); let mn=1e9,mx=-1e9; for(let i=a;i<b&&i<nShow;i++){ const v=d[i]-base; if(v<mn)mn=v; if(v>mx)mx=v; }
+    const y1=h/2-(mx/full)*(h/2), y2=h/2-(mn/full)*(h/2); g.moveTo(x+.5,Math.max(0,Math.min(h,y1))); g.lineTo(x+.5,Math.max(0,Math.min(h,y2+ (y2-y1<1?1:0)))); }
+  g.stroke();
+  g.fillStyle='#898781'; g.font=`${11*dpr}px system-ui`; g.textBaseline='top';
+  g.fillText(c.kind==='mic'?`±${full.toPrecision(2)} FS`:`±${full.toFixed(0)} cnt`, 6*dpr, 4*dpr);
+  g.textAlign='right'; g.fillText(`${WINDOW_S.toFixed(0)} s`, w-6*dpr, 4*dpr); g.textAlign='left';
+  if (p.hover){ const x=Math.round(p.hover.x*w)+.5; g.strokeStyle='#c3c2b7'; g.beginPath(); g.moveTo(x,0); g.lineTo(x,h); g.stroke();
+    const i=Math.min(nShow-1,Math.floor(p.hover.x*nShow)); const v=d[i]-base; const t=((i-nShow)/rate).toFixed(3);
+    tip.style.display='block'; tip.style.left=(p.hover.cx+14)+'px'; tip.style.top=(p.hover.cy+14)+'px';
+    tip.textContent = c.kind==='mic' ? `t ${t} s   ${v.toFixed(5)} FS` : `t ${t} s   ${v.toFixed(0)} counts`; }
+
+  // spectrum of the last FFT_N samples
+  const off=nShow-FFT_N; if (off>=0){
+    for(let i=0;i<FFT_N;i++){ p.fftRe[i]=(d[off+i]-base)*hann[i]*(c.kind==='mic'?1:1/2048); p.fftIm[i]=0; }
+    fft(p.fftRe,p.fftIm);
+    for(let i=0;i<FFT_N/2;i++){ const m=Math.hypot(p.fftRe[i],p.fftIm[i])/(FFT_N/4); const db=20*Math.log10(m+1e-9); p.specDb[i]=p.specDb[i]*0.6+db*0.4; }
+  }
+  const [sw,sh,sd]=fitCanvas(p.spec); const s=p.spec.getContext('2d');
+  s.fillStyle='#0d0d0d'; s.fillRect(0,0,sw,sh);
+  const fmax=rate/2, dbTop=0, dbBot=c.kind==='mic'?-120:-100;
+  s.strokeStyle='#2c2c2a'; s.lineWidth=1; s.beginPath();
+  const step=fmax>6000?2000:1000; for(let f=step;f<fmax;f+=step){ const x=Math.round(sw*f/fmax)+.5; s.moveTo(x,0); s.lineTo(x,sh); }
+  s.stroke();
+  s.fillStyle='#898781'; s.font=`${10*sd}px system-ui`; s.textBaseline='top';
+  for(let f=step;f<fmax;f+=step){ s.fillText(`${f/1000} kHz`, sw*f/fmax+3*sd, 4*sd); }
+  s.fillText('spectrum, dB', 6*sd, 4*sd);
+  s.strokeStyle=c.color; s.lineWidth=Math.max(1,sd); s.beginPath();
+  const bins=FFT_N/2;
+  for(let x=0;x<sw;x++){ const b0=Math.floor(x*bins/sw), b1=Math.max(b0+1,Math.floor((x+1)*bins/sw)); let mx=-1e9; for(let b=b0;b<b1&&b<bins;b++){ if(p.specDb[b]>mx)mx=p.specDb[b]; }
+    const y=sh-(Math.min(dbTop,Math.max(dbBot,mx))-dbBot)/(dbTop-dbBot)*sh; if(x===0)s.moveTo(x,y); else s.lineTo(x,y); }
+  s.stroke();
+}
+function frame(ts){ requestAnimationFrame(frame); if (ts-state.lastFrame < 30) return; const dt=state.lastFrame?Math.min(0.2,(ts-state.lastFrame)/1000):0; state.lastFrame=ts; for(const p of panels) drawPanel(p, dt); }
+requestAnimationFrame(frame);
+
+// ---------------------------------------------------------------- websocket + status
+const $=id=>document.getElementById(id);
+let ws, wsTimer;
+function connect(){
+  ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws');
+  ws.binaryType='arraybuffer';
+  ws.onmessage=e=>{ if (e.data instanceof ArrayBuffer) onChunk(e.data); else onStatus(JSON.parse(e.data)); };
+  ws.onclose=()=>{ $('devstate').textContent='server link lost'; $('dot').className='dot'; clearTimeout(wsTimer); wsTimer=setTimeout(connect,1500); };
+  ws.onerror=()=>ws.close();
+}
+connect();
+function fmtUp(s){ if(s==null)return '–'; const h=Math.floor(s/3600),m=Math.floor(s%3600/60); return h?`${h}h ${m}m`:`${m}m ${s%60}s`; }
+let recActive=false;
+function onStatus(m){
+  if (m.type!=='status') return;
+  const d=m.device;
+  $('dot').className='dot'+(d.online?' on':'');
+  $('devstate').textContent=d.online?'device streaming':(d.last_seen_ago==null?'waiting for device':`device silent ${Math.round(d.last_seen_ago)} s`);
+  $('dev').textContent=d.device||'–'; $('kbps').textContent=d.online?d.kbps:'0'; $('seq').textContent=d.seq??'–';
+  $('gaps').textContent=d.gaps; $('up').textContent=fmtUp(d.uptime_s); $('viewers').textContent=m.clients;
+  const r=m.recording; if (recActive && !r.active) loadRecs(); recActive=r.active;
+  $('recbtn').textContent=r.active?'Stop':'● Record'; $('recbtn').className='rec'+(r.active?' on':'');
+  $('recstate').textContent=r.active?`recording "${r.name||r.id}"  ${r.duration_s.toFixed(1)} s  ${(r.bytes/1e6).toFixed(1)} MB${r.gaps?`  (${r.gaps} lost chunks)`:''}`:'not recording';
+  $('recname').disabled=r.active;
+}
+$('recbtn').onclick=async()=>{
+  $('recbtn').disabled=true;
+  try {
+    if (recActive) { await fetch('/api/record/stop',{method:'POST'}); loadRecs(); }
+    else await fetch('/api/record/start',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name:$('recname').value})});
+  } finally { $('recbtn').disabled=false; }
+};
+$('recname').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!recActive) $('recbtn').click(); });
+
+// ---------------------------------------------------------------- recordings
+function fmtBytes(b){ return b>1e6?(b/1e6).toFixed(1)+' MB':(b/1e3).toFixed(0)+' kB'; }
+async function loadRecs(){
+  const list=await (await fetch('/api/recordings')).json();
+  const tb=$('rectbody'); tb.innerHTML=''; $('recempty').style.display=list.length?'none':'block';
+  for (const r of list){
+    const tr=document.createElement('tr');
+    const files=r.files.map(f=>`<a href="/api/recordings/${r.id}/${f.name}" download>${f.name}</a>`).join('');
+    tr.innerHTML=`<td>${r.started?r.started.replace('T',' ').slice(0,19):r.id}</td><td>${r.name||'<span style="color:var(--muted)">–</span>'}${r.complete?'':' <span style="color:var(--warn)">(in progress)</span>'}</td>
+      <td>${(r.duration_s||0).toFixed(1)} s</td><td>${fmtBytes(r.bytes)}</td><td>${r.gaps||0}</td><td>${files}</td>
+      <td><button class="small danger">delete</button></td>`;
+    const btn=tr.querySelector('button');
+    btn.onclick=async()=>{ if(btn.dataset.arm){ await fetch('/api/recordings/'+r.id,{method:'DELETE'}); loadRecs(); } else { btn.dataset.arm='1'; btn.textContent='confirm delete'; setTimeout(()=>{btn.dataset.arm='';btn.textContent='delete';},3000);} };
+    tb.appendChild(tr);
+  }
+}
+loadRecs(); setInterval(loadRecs, 15000);
+</script>
+</body>
+</html>

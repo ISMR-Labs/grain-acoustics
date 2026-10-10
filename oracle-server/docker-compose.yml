@@ -1,0 +1,16 @@
+services:
+  oracle:
+    build: .
+    container_name: oracle
+    ports:
+      - "8003:8003"
+    volumes:
+      - ./data:/app/data
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATA_DIR: /app/data
+      HF_HOME: /app/data/models
+    user: "1000:1000"
+    restart: unless-stopped

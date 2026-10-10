@@ -1,0 +1,46 @@
+[
+ {
+  "channel": "mic_A",
+  "rate": 16000,
+  "seconds": 23.1,
+  "rms_dbfs": -22.5,
+  "peak_dbfs": -5.9,
+  "clipped_pct": 0.0,
+  "energy_below_100hz_pct": 50.8,
+  "hum_50hz_over_neighbours_db": 1.9,
+  "dc_offset": 19.3
+ },
+ {
+  "channel": "mic_B",
+  "rate": 16000,
+  "seconds": 23.1,
+  "rms_dbfs": -23.1,
+  "peak_dbfs": -1.9,
+  "clipped_pct": 0.0,
+  "energy_below_100hz_pct": 48.3,
+  "hum_50hz_over_neighbours_db": 0.9,
+  "dc_offset": 0.3
+ },
+ {
+  "channel": "piezo_1",
+  "rate": 8000,
+  "seconds": 23.1,
+  "rms_dbfs": -12.9,
+  "peak_dbfs": -0.0,
+  "clipped_pct": 0.0,
+  "energy_below_100hz_pct": 79.7,
+  "hum_50hz_over_neighbours_db": -0.9,
+  "dc_offset": -329.4
+ },
+ {
+  "channel": "piezo_2",
+  "rate": 8000,
+  "seconds": 23.1,
+  "rms_dbfs": -12.8,
+  "peak_dbfs": -1.8,
+  "clipped_pct": 0.0,
+  "energy_below_100hz_pct": 77.6,
+  "hum_50hz_over_neighbours_db": -0.7,
+  "dc_offset": -337.1
+ }
+]

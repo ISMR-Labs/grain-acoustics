@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Oracle</title><link rel="icon" href="data:,">
+<style>
+  :root { --page:#0d0d0d; --surface:#1a1a19; --ink:#fff; --ink2:#c3c2b7; --muted:#898781; --grid:#2c2c2a; --axis:#383835; --ring:rgba(255,255,255,.10);
+          --c1:#9085e9; --good:#0ca30c; --crit:#d03b3b; --warn:#fab219; --blue:#3987e5; color-scheme:dark }
+  * { box-sizing:border-box } body { margin:0; background:var(--page); color:var(--ink); font:14px/1.45 -apple-system,system-ui,Segoe UI,Roboto,sans-serif; padding:16px }
+  h1 { font-size:20px; margin:0; font-weight:600; letter-spacing:.3px } h2 { font-size:14px; margin:0 0 10px; font-weight:600; color:var(--ink2) }
+  header { display:flex; flex-wrap:wrap; gap:10px 18px; align-items:center; margin-bottom:14px }
+  .pill { display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:999px; border:1px solid var(--ring); font-size:12px; color:var(--ink2) }
+  .dot { width:8px; height:8px; border-radius:50%; background:var(--crit) } .dot.on { background:var(--good) } .dot.warn { background:var(--warn) }
+  .stat { font-size:12px; color:var(--muted) } .stat b { color:var(--ink2); font-weight:500 }
+  .card { background:var(--surface); border:1px solid var(--ring); border-radius:10px; padding:12px 14px; min-width:0 }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:12px } @media (max-width:900px) { .grid { grid-template-columns:1fr } }
+  .row { display:flex; flex-wrap:wrap; gap:8px; align-items:center }
+  input[type=text] { background:var(--page); color:var(--ink); border:1px solid var(--axis); border-radius:8px; padding:9px 12px; font-size:14px; flex:1; min-width:160px }
+  button { background:#2a2a28; color:var(--ink); border:1px solid var(--ring); border-radius:8px; padding:8px 14px; font-size:14px; cursor:pointer } button:hover { background:#333331 }
+  button.pri { background:#4a3aa7; border-color:transparent } button.pri:hover { background:#5847c2 } button.small { padding:4px 10px; font-size:12px } button.stop { border-color:var(--crit); color:#ff8b8b }
+  .orb { width:110px; height:110px; border-radius:50%; margin:6px auto 10px; background:radial-gradient(circle at 35% 35%, #6f63d6, #2a2160 70%); box-shadow:0 0 30px #4a3aa733; transition:box-shadow .3s, transform .3s }
+  .orb.listening { box-shadow:0 0 45px #3987e5aa; animation:pulse 1.2s ease-in-out infinite } .orb.thinking { box-shadow:0 0 45px #fab219aa; animation:spin 2s linear infinite }
+  .orb.speaking { box-shadow:0 0 55px #0ca30caa; animation:pulse .6s ease-in-out infinite } .orb.followup { box-shadow:0 0 35px #3987e566 } .orb.offline { filter:grayscale(1) brightness(.5) }
+  @keyframes pulse { 50% { transform:scale(1.08) } } @keyframes spin { to { transform:rotate(360deg) } }
+  .state { text-align:center; font-size:13px; color:var(--ink2); margin-bottom:12px; min-height:18px }
+  canvas { width:100%; height:120px; display:block; border-radius:4px; background:var(--page) }
+  .log { max-height:460px; overflow-y:auto; font-size:13px } .ev { padding:6px 8px; border-bottom:1px solid var(--grid); display:flex; gap:10px } .ev time { color:var(--muted); font-size:11px; white-space:nowrap; padding-top:2px; min-width:58px }
+  .ev .k { font-size:11px; text-transform:uppercase; letter-spacing:.5px; min-width:52px; padding-top:2px } .k.query { color:var(--blue) } .k.reply { color:var(--good) } .k.wake { color:var(--c1) } .k.heard { color:var(--muted) } .k.error { color:var(--crit) } .k.tool { color:var(--warn) } .k.say { color:var(--good) } .k.info { color:var(--muted) } .k.play { color:#e87ba4 }
+  .ev .txt { flex:1; color:var(--ink2) } .ev.query .txt, .ev.reply .txt { color:var(--ink) } .ev.heard .txt { color:var(--muted); font-style:italic }
+  .vol { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted) } .vol input { width:120px }
+  .kv { display:grid; grid-template-columns:auto 1fr; gap:4px 12px; font-size:12px; color:var(--muted) } .kv b { color:var(--ink2); font-weight:500 } .kv .bad { color:var(--crit) } .kv .ok { color:var(--good) }
+  .note { font-size:12px; color:var(--muted); margin-top:8px }
+</style>
+</head>
+<body>
+<header>
+  <h1>The Oracle</h1>
+  <span class="pill"><span class="dot" id="dot"></span><span id="devstate">connecting…</span></span>
+  <span class="stat">device <b id="dev">–</b></span><span class="stat">uptime <b id="up">–</b></span><span class="stat">mic <b id="kbps">0</b> kB/s</span><span class="stat">wifi <b id="rssi">–</b> dBm</span><span class="stat">stalls <b id="stall">–</b> ms</span><span class="stat">viewers <b id="viewers">–</b></span>
+</header>
+<div class="grid">
+  <div>
+    <div class="card" style="margin-bottom:12px">
+      <div class="orb" id="orb"></div><div class="state" id="state">…</div>
+      <div class="row" style="justify-content:center; margin-bottom:10px">
+        <button class="pri" id="listen">🎤 Listen now</button><button class="stop" id="stop">■ Stop</button><button id="reset">Reset conversation</button><button id="tone" title="3 s 440 Hz tone generated on the device: if this is distorted, the fault is in the DAC/amp wiring or power">♪ Tone test</button>
+        <span class="vol">volume <input type="range" id="vol" min="0" max="100" value="25"><b id="volv">25%</b></span>
+      </div>
+      <canvas id="wave"></canvas>
+    </div>
+    <div class="card" style="margin-bottom:12px">
+      <h2>Ask by typing</h2>
+      <div class="row"><input type="text" id="ask" placeholder="e.g. what time is it? / turn off the kitchen light"><button class="pri" id="askbtn">Ask</button></div>
+      <div class="row" style="margin-top:8px"><input type="text" id="say" placeholder="make the Oracle say this…"><button id="saybtn">Say</button></div>
+    </div>
+    <div class="card" style="margin-bottom:12px">
+      <h2>Music library</h2>
+      <div class="row" style="margin-bottom:8px"><label><input type="file" id="upfile" accept="audio/*,.mp3,.wav,.ogg,.m4a,.flac" hidden><button id="upbtn">⬆ Add song</button></label><span class="stat" id="upstate"></span></div>
+      <div id="lib" class="log" style="max-height:220px"></div>
+      <p class="note">Say "Oracle, play &lt;song name&gt;" to play one. Press the device button or say "Oracle, stop" to stop.</p>
+    </div>
+    <div class="card">
+      <h2>Setup</h2>
+      <div class="kv" id="kv"></div>
+      <p class="note" id="wakenote"></p>
+    </div>
+  </div>
+  <div class="card"><h2>Conversation log</h2><div class="log" id="log"></div></div>
+</div>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const RATE=16000, WIN=2.0; const ring=new Float32Array(RATE*WIN*2); let w=0;
+function onChunk(ab){ const dv=new DataView(ab); if(dv.getUint32(0,false)!==0x41554431) return; const frames=dv.getUint32(16,true); const s=new Int16Array(ab,24,frames); for(let i=0;i<s.length;i++){ ring[w]=s[i]/32768; w=(w+1)%ring.length; } }
+const cv=$('wave'); let auto=0.01;
+function draw(){ requestAnimationFrame(draw); const r=cv.getBoundingClientRect(), dpr=devicePixelRatio||1, W=Math.round(r.width*dpr), H=Math.round(r.height*dpr); if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H;}
+  const g=cv.getContext('2d'); g.fillStyle='#0d0d0d'; g.fillRect(0,0,W,H); const n=RATE*WIN; let mx=0; for(let i=0;i<n;i++){ const a=Math.abs(ring[(w-n+i+ring.length)%ring.length]); if(a>mx)mx=a; } auto=auto*0.9+Math.max(mx*1.2,0.003)*0.1;
+  g.strokeStyle='#9085e9'; g.lineWidth=Math.max(1,dpr); g.beginPath(); const spp=n/W; for(let x=0;x<W;x++){ let lo=1e9,hi=-1e9; for(let i=Math.floor(x*spp);i<Math.floor((x+1)*spp);i++){ const v=ring[(w-n+i+ring.length)%ring.length]; if(v<lo)lo=v; if(v>hi)hi=v; } const y1=H/2-hi/auto*H/2, y2=H/2-lo/auto*H/2; g.moveTo(x+.5,Math.max(0,Math.min(H,y1))); g.lineTo(x+.5,Math.max(0,Math.min(H,y2+1))); } g.stroke(); }
+requestAnimationFrame(draw);
+
+let ws, timer, volDrag=false;
+function connect(){ ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws'); ws.binaryType='arraybuffer';
+  ws.onmessage=e=>{ if(e.data instanceof ArrayBuffer) onChunk(e.data); else { const m=JSON.parse(e.data); if(m.type==='status') onStatus(m); else if(m.type==='event') addEvent(m); } };
+  ws.onclose=()=>{ $('devstate').textContent='server link lost'; $('dot').className='dot'; clearTimeout(timer); timer=setTimeout(connect,1500); }; ws.onerror=()=>ws.close(); }
+connect();
+const STATE_TXT={offline:'device offline', idle:'idle — say "Oracle" or press the button', listening:'listening…', thinking:'thinking…', speaking:'speaking', followup:'listening for a follow-up…'};
+function fmtUp(s){ if(s==null)return'–'; const h=Math.floor(s/3600),m=Math.floor(s%3600/60); return h?`${h}h ${m}m`:`${m}m ${s%60}s`; }
+function onStatus(m){ const d=m.device; $('dot').className='dot'+(d.online?' on':''); $('devstate').textContent=d.online?'device streaming':'waiting for device'; $('dev').textContent=d.name||'–'; $('up').textContent=fmtUp(d.uptime_s); $('kbps').textContent=d.online?d.kbps:'0'; $('viewers').textContent=m.clients; $('rssi').textContent=(d.stats||{}).rssi||'–'; $('stall').textContent=(d.stats||{}).stall_ms||'–';
+  $('orb').className='orb '+(d.state||'offline'); $('state').textContent=STATE_TXT[d.state]||d.state; if(!volDrag){ $('vol').value=Math.round(m.volume*100); $('volv').textContent=Math.round(m.volume*100)+'%'; }
+  const b=m.brain, kv=$('kv'); kv.innerHTML=`<span>brain</span><b class="${b.configured?'ok':'bad'}">${b.configured?b.model:'not configured — '+(b.error||'')}</b>
+    <span>speech recognition</span><b class="${m.stt.ready?'ok':''}">${m.stt.ready?'ready':'loading…'} (whisper ${m.stt.model})</b>
+    <span>voice</span><b class="${m.tts.ready?'ok':''}">${m.tts.ready?'ready':'loading…'} (${m.tts.voice})</b>
+    <span>home assistant</span><b class="${b.home_assistant?'ok':''}">${b.home_assistant?'connected':'not configured'}</b>${m.startup_error?`<span>error</span><b class="bad">${m.startup_error}</b>`:''}`;
+  $('wakenote').textContent=`Wake words: ${m.wake_words.join(', ')}. Say "Oracle, what time is it?" in one go, or just "Oracle" and wait for the beep. The BOOT button on the device is push-to-talk. After an answer you have ${6} seconds to ask a follow-up without the wake word.`; }
+function addEvent(e){ const log=$('log'); const el=document.createElement('div'); el.className='ev '+e.kind; const t=new Date(e.t*1000).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  let txt=e.text||''; if(e.kind==='tool') txt=`${e.name}(${JSON.stringify(e.input)}) → ${e.result}`; if(e.kind==='error') txt=`${e.where}: ${e.error}`; if(e.kind==='heard') txt=(txt||'(silence)')+(e.ignored?'  · no wake word':'');
+  el.innerHTML=`<time>${t}</time><span class="k ${e.kind}">${e.kind}</span><span class="txt"></span>`; el.querySelector('.txt').textContent=txt; log.appendChild(el); while(log.children.length>200) log.removeChild(log.firstChild); log.scrollTop=log.scrollHeight; }
+const post=(u,b)=>fetch(u,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(b||{})});
+$('listen').onclick=()=>post('/api/listen'); $('stop').onclick=()=>post('/api/stop'); $('reset').onclick=()=>post('/api/reset'); $('tone').onclick=()=>post('/api/tone');
+$('askbtn').onclick=()=>{ const t=$('ask').value.trim(); if(t){ post('/api/ask',{text:t}); $('ask').value=''; } }; $('ask').addEventListener('keydown',e=>{ if(e.key==='Enter') $('askbtn').click(); });
+$('saybtn').onclick=()=>{ const t=$('say').value.trim(); if(t){ post('/api/say',{text:t}); $('say').value=''; } }; $('say').addEventListener('keydown',e=>{ if(e.key==='Enter') $('saybtn').click(); });
+$('upbtn').onclick=e=>{ e.preventDefault(); $('upfile').click(); };
+$('upfile').onchange=async()=>{ const f=$('upfile').files[0]; if(!f)return; $('upstate').textContent=`converting ${f.name}…`; const fd=new FormData(); fd.append('file',f); fd.append('name',f.name.replace(/\.[^.]+$/,'').replace(/[_\-]+/g,' '));
+  const r=await fetch('/api/library',{method:'POST',body:fd}); const j=await r.json().catch(()=>({})); $('upstate').textContent=r.ok?`added "${j.name}"`:`failed: ${j.detail||r.status}`; $('upfile').value=''; loadLib(); };
+async function loadLib(){ const list=await (await fetch('/api/library')).json(); const el=$('lib'); el.innerHTML=list.length?'':'<div class="ev"><span class="txt">No songs yet. Add an MP3 and say "Oracle, play &lt;name&gt;".</span></div>';
+  for(const m of list){ const row=document.createElement('div'); row.className='ev'; row.innerHTML=`<span class="txt">${m.name} <span style="color:var(--muted)">${Math.round(m.duration_s/60)}:${String(Math.round(m.duration_s%60)).padStart(2,'0')}</span></span><button class="small pri">▶ play</button><button class="small">delete</button>`;
+    row.querySelector('.pri').onclick=()=>post(`/api/library/${m.id}/play`); const del=row.querySelectorAll('button')[1]; del.onclick=async()=>{ if(del.dataset.arm){ await fetch('/api/library/'+m.id,{method:'DELETE'}); loadLib(); } else { del.dataset.arm='1'; del.textContent='confirm'; setTimeout(()=>{del.dataset.arm='';del.textContent='delete';},3000);} }; el.appendChild(row); } }
+loadLib();
+$('vol').addEventListener('pointerdown',()=>volDrag=true); $('vol').addEventListener('input',()=>$('volv').textContent=$('vol').value+'%'); $('vol').addEventListener('change',()=>{ volDrag=false; post('/api/volume',{vol:$('vol').value/100}); });
+</script>
+</body>
+</html>

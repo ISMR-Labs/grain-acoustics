@@ -1,0 +1,19 @@
+# secrets
+secrets.h
+.env
+*.pem
+# python
+__pycache__/
+*.pyc
+.venv/
+# server runtime
+server/recordings/
+audio-server/recordings/
+audio-server/sounds/
+oracle-server/data/
+# os
+.DS_Store
+Thumbs.db
+# large originals are release assets, not tracked
+media/video/*.mp4
+media/video/*.MOV

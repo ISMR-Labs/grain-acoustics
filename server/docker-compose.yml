@@ -1,0 +1,13 @@
+services:
+  sensors:
+    build: .
+    container_name: rice-sensors
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./recordings:/app/recordings
+    environment:
+      RECORDINGS_DIR: /app/recordings
+      # INGEST_TOKEN: change-me     # optional: ESP32 must then send X-Token
+    user: "1000:1000"
+    restart: unless-stopped

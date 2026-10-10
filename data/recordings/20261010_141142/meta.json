@@ -1,0 +1,35 @@
+{
+ "name": "",
+ "started": "2026-10-10T14:11:42.593360",
+ "ended": "2026-10-10T14:12:05.664436",
+ "duration_s": 23.1,
+ "mic": {
+  "file": "mics.wav",
+  "rate": 16000,
+  "channels": [
+   "mic_A",
+   "mic_B"
+  ],
+  "format": "int16 = INMP441 24-bit >> 14",
+  "frames": 369600
+ },
+ "piezo": {
+  "file": "piezo.wav",
+  "rate": 8000,
+  "channels": [
+   "piezo_1",
+   "piezo_2"
+  ],
+  "format": "int16 = raw 12-bit ADC - 2048 (0 dB atten, 0.55 V bias)",
+  "frames": 184832
+ },
+ "chunks": 231,
+ "gap_chunks_zero_filled": 0,
+ "complete": true,
+ "per_channel_files": {
+  "mic_A.wav": "Mic A mono",
+  "mic_B.wav": "Mic B mono",
+  "piezo_1.wav": "Piezo 1 mono (raw ADC - 2048)",
+  "piezo_2.wav": "Piezo 2 mono (raw ADC - 2048)"
+ }
+}

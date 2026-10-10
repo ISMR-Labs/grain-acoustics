@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use this design or data, please cite it as below."
+title: "grain-acoustics: acoustic and vibration sensing of stored-grain insects in bagged rice"
+type: software
+authors:
+  - family-names: Perera
+    given-names: Dilan
+    affiliation: "Intelligent Systems & Mechatronics Research Laboratory (ISMR Labs)"
+repository-code: "https://github.com/ISMR-Labs/grain-acoustics"
+date-released: 2026-10-10
+version: 0.1.0
+license: MIT
+keywords:
+  - stored-product insects
+  - acoustic detection
+  - biotremology
+  - piezoelectric sensor
+  - INMP441
+  - ESP32
+  - rice
