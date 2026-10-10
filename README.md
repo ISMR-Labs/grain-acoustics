@@ -188,6 +188,9 @@ Ender-3 V3 SE. Sources, STL files, preview renders and sliced G-code are in
 | Mic pod + lid | 30 × 30 × 8.7 | 4-hole sound grille in the lid, rim notch for the cable, M2 posts |
 | Piezo pad + lid | 57 × 57 × 5.5 | 3 mm cavity for a 27 mm disc with room for larger discs, M2.5 posts |
 
+The enclosures of the companion vibration-motor array (module pod and push-button controller
+box) are in the same folder; see [hardware/enclosures/README.md](hardware/enclosures/README.md).
+
 <p align="center">
   <img src="hardware/enclosures/esp32-controller-box/esp32-controller-box-iso.png" width="32%" alt="Controller box render">
   <img src="hardware/enclosures/mic-box/mic-box-iso.png" width="32%" alt="Mic pod render">

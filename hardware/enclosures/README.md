@@ -28,3 +28,18 @@ Renders
 |---|---|---|
 | ![](esp32-controller-box/esp32-controller-box-iso.png) | ![](mic-box/mic-box-iso.png) | ![](piezo-box/piezo-box-iso.png) |
 | ![](esp32-controller-box/esp32-controller-box-top.png) | ![](mic-box/mic-box-top.png) | ![](piezo-box/piezo-box-top.png) |
+
+## Companion build: vibration-motor array (24 Sep 2026)
+
+Two more Forge projects from the same lab, used for the 17-module vibration array shown in
+`media/photos/2026-09-24-vibration-array`. They are kept here because the array is a usable
+calibration stimulus for the piezo channels and shares the same enclosure style.
+
+| Folder | Part | Outer (mm) | Inner clear (mm) | Posts | Notes |
+|---|---|---|---|---|---|
+| `vibration-motor-enclosure/` | Module pod + lid (v11) | 32.5 × 40.5 × 10.1 (laid out 117.5 × 40.5 with lid and base plate) | ~21.1 × 29.1 × 8.6 | M2.5 self-tap | Fits a module up to 21 × 29 mm; `gcode/vib_6baseplates.gcode` prints six base plates per bed |
+| `controller-box/` | Push-button controller box + lid + base plate | 101.8 × 70.8 × 34.7 (laid out 329.4 × 70.8 with lid and plate) | 52 × 83 × 32 | M3 | No cable slot or LED holes; `gcode/controller_box.gcode`, `controller_lid.gcode`, `controller_lid_baseplate.gcode` |
+
+| Vibration module pod | Controller box |
+|---|---|
+| ![](vibration-motor-enclosure/vibration-motor-enclosure-iso.png) | ![](controller-box/controller-box-iso.png) |
