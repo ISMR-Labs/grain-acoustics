@@ -14,6 +14,7 @@ vibration to a self-hosted server that visualises, records and exports every cha
 | Lab | Intelligent Systems & Mechatronics Research Laboratory (ISMR Labs) |
 | Status | Prototype hardware built and streaming. Baseline recordings captured. No insect recordings yet. |
 | Started | 25 September 2026 |
+| Paper | [paper/grain-acoustics.pdf](paper/grain-acoustics.pdf) (4-page IEEE-style write-up, source in `paper/`) |
 | Live dashboard | `https://sensors.dilanp.duckdns.org` (lab network only) |
 
 ---
@@ -339,6 +340,7 @@ Details for both are in [docs/companion-builds.md](docs/companion-builds.md).
 ```
 grain-acoustics/
 ├── README.md                this file
+├── paper/                   LaTeX write-up (IEEEtran) + compiled PDF
 ├── docs/
 │   ├── wiring.md            pin map, input networks, photos of the build
 │   ├── protocol.md          SNS1 / AUD1 wire formats and REST + WebSocket API
